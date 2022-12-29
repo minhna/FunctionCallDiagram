@@ -80,10 +80,12 @@ const getProcessArgs = () => {
 async function run(task: string) {
   try {
     await client?.connect();
+    debug("Opened database connection");
     await collection?.createIndex(
-      { name: 1, filePath: 1 },
+      { name: 1, objectName: 1, filePath: 1 },
       { name: "by_name_filePath" }
     );
+    debug("Created database index");
   } catch (e) {
     if (e instanceof Error) {
       debug("Unable to connect database", e.message);
@@ -100,11 +102,12 @@ async function run(task: string) {
     case "reset": {
       try {
         debug("Resetting data...");
+        await collection?.dropIndexes();
         await collection?.deleteMany({});
         debug("Reset completed");
       } catch (e) {
         if (e instanceof Error) {
-          debug("Unable to connect database", e.message);
+          debug("Error resetting data", e.message);
         }
       }
 
@@ -119,6 +122,7 @@ async function run(task: string) {
 
   try {
     await client?.close();
+    debug("Closed database connection");
   } catch (e) {
     if (e instanceof Error) {
       debug("Error close database connection", e.message);
@@ -150,5 +154,7 @@ if (objArgs["--reset"]) {
   task = "scan";
 }
 if (task) {
-  run(task);
+  run(task).then(() => {
+    exit();
+  });
 }
