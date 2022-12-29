@@ -1,5 +1,13 @@
 import fs from "fs";
-import { ASTPath, Function, JSCodeshift, SourceLocation } from "jscodeshift";
+import {
+  ASTNode,
+  ASTPath,
+  Function,
+  JSCodeshift,
+  ObjectMethod,
+  SourceLocation,
+  VariableDeclarator,
+} from "jscodeshift";
 import { SettingsObject } from "./types";
 
 const debug = require("debug")("run:utils");
@@ -10,12 +18,12 @@ export const getSettings = () => {
     const settings: SettingsObject = JSON.parse(
       fs.readFileSync("./settings.json", "utf-8")
     );
-    debug("getSettings", settings);
+    debug("[getSettings]", settings);
 
     return settings;
   } catch (e) {
     if (e instanceof Error) {
-      debug("Error reading settings:", e.message);
+      debug("[getSettings] Error reading settings:", e.message);
     }
   }
 };
@@ -37,7 +45,26 @@ export const getLocation = (
   return getLocation(p.parentPath);
 };
 
-export const getFunctionName = (p: ASTPath<Function>) => {
+export const getParentVariableDeclarator = (
+  p: ASTPath<VariableDeclarator>
+): ASTPath | undefined => {
+  if (!p.parentPath) {
+    return undefined;
+  }
+  if (p.parentPath.value.type === "VariableDeclarator") {
+    return p.parentPath;
+  }
+  return getParentVariableDeclarator(p.parentPath);
+};
+
+export type GetFunctionNameResult = {
+  name: string;
+  objectName?: string;
+};
+
+export const getFunctionName = (
+  p: ASTPath<Function | ObjectMethod>
+): GetFunctionNameResult | undefined => {
   switch (p.value.type) {
     case "ArrowFunctionExpression":
     case "FunctionExpression": {
@@ -51,10 +78,10 @@ export const getFunctionName = (p: ASTPath<Function>) => {
           case "VariableDeclarator":
             switch (p.parentPath.value.id.type) {
               case "Identifier":
-                return p.parentPath.value.id.name;
+                return { name: p.parentPath.value.id.name };
               default:
                 debug(
-                  "Unhandled VariableDeclarator id type:",
+                  "[getFunctionName] Unhandled VariableDeclarator id type:",
                   p.parentPath.value.id.type
                 );
                 return;
@@ -62,16 +89,37 @@ export const getFunctionName = (p: ASTPath<Function>) => {
           case "Property":
             switch (p.parentPath.value.key.type) {
               case "Identifier":
-                return p.parentPath.value.key.name;
+                return { name: p.parentPath.value.key.name };
               default:
                 debug(
-                  "Unhandled parentPath Property key type:",
+                  "[getFunctionName] Unhandled parentPath Property key type:",
                   p.parentPath.value.key.type
                 );
                 return;
             }
+          case "ObjectProperty": {
+            const methodName = p.parentPath.value.key.name;
+            // get the object name
+            const parentVariableDeclarator = getParentVariableDeclarator(
+              p.parentPath
+            );
+            if (
+              parentVariableDeclarator?.value.type === "VariableDeclarator" &&
+              parentVariableDeclarator.value.id.type === "Identifier"
+            ) {
+              return {
+                name: methodName,
+                objectName: parentVariableDeclarator.value.id.name,
+              };
+            }
+            break;
+          }
+
           default:
-            debug("Unhandled parentPath value type:", p.parentPath.value.type);
+            debug(
+              "[getFunctionName] Unhandled parentPath value type:",
+              p.parentPath.value.type
+            );
         }
       }
       break;
@@ -79,13 +127,36 @@ export const getFunctionName = (p: ASTPath<Function>) => {
     case "FunctionDeclaration":
       switch (p.value.id?.type) {
         case "Identifier":
-          return p.value.id.name;
+          return { name: p.value.id.name };
         default:
-          debug("Unhandled FunctionDeclaration id type:", p.value.id?.type);
+          debug(
+            "[getFunctionName] Unhandled FunctionDeclaration id type:",
+            p.value.id?.type
+          );
           return;
       }
+    case "ObjectMethod": {
+      // debug("[getFunctionName] ObjectMethod", p.value);
+      // typescript is crazy, I don't know how to check type in runtime.
+      const px: ASTPath<any> = p;
+      const methodName = px.value.key.name;
+      // get the object name
+      const parentVariableDeclarator = getParentVariableDeclarator(
+        p.parentPath
+      );
+      if (
+        parentVariableDeclarator?.value.type === "VariableDeclarator" &&
+        parentVariableDeclarator.value.id.type === "Identifier"
+      ) {
+        return {
+          name: methodName,
+          objectName: parentVariableDeclarator.value.id.name,
+        };
+      }
+      break;
+    }
     default:
-      debug("Unhandled function type:", p.value.type);
+      debug("[getFunctionName] Unhandled function type:", p.value.type);
       break;
   }
 };
@@ -97,7 +168,7 @@ export const getFunctionParams = (p: ASTPath<Function>, j: JSCodeshift) => {
     case "FunctionDeclaration":
       return j(p.value.params).toSource();
     default:
-      debug("Unhandled function type:", p.value.type);
+      debug("[getFunctionParams] Unhandled function type:", p.value.type);
       break;
   }
 };

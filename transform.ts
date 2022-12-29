@@ -23,8 +23,10 @@ module.exports = async function (
   // find all function declaration
   rootCollection.find(j.Function).forEach(async (p) => {
     // insert to the database
+    const { name, objectName } = getFunctionName(p) || {};
     const func = {
-      name: getFunctionName(p),
+      name,
+      objectName,
       params: `${getFunctionParams(p, j)}`,
       startLine: getLocation(p)?.start.line,
       filePath: fileInfo.path,
