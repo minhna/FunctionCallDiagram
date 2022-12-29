@@ -1,0 +1,15 @@
+{
+  "mongodb": {
+    "connectionURI": "mongodb://localhost:27017",
+    "database": "functions-diagram",
+    "collection": "functionCalls"
+  },
+  "excludePaths": [
+    "node_modules",
+    ".meteor",
+    ".storybook",
+    ".vscode",
+    ".npm",
+    ".git"
+  ]
+}
