@@ -166,6 +166,7 @@ export const getFunctionParams = (p: ASTPath<Function>, j: JSCodeshift) => {
     case "ArrowFunctionExpression":
     case "FunctionExpression":
     case "FunctionDeclaration":
+    case "ObjectMethod":
       return j(p.value.params).toSource();
     default:
       debug("[getFunctionParams] Unhandled function type:", p.value.type);
