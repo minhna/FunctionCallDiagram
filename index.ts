@@ -22,6 +22,7 @@ const [, mainPath, ...args] = process.argv;
 const availableArgs: { [key: string]: string } = {
   "--debug": "set debug filter, e.g: --debug=run:*",
   "-d": "set debug filter, e.g: -d run:*",
+  "--cpus": "start at most N child processes to process source files",
   "--reset": "empty database collection",
   "--scanUsages": "scan function usages",
 };
@@ -135,6 +136,9 @@ if (!isValid) {
 debug("args", objArgs);
 if (objArgs["--debug"]) {
   process.env.DEBUG = objArgs["--debug"];
+}
+if (objArgs["--cpus"]) {
+  options.cpus = parseInt(`${objArgs["--cpus"]}`, 10);
 }
 
 let task;
