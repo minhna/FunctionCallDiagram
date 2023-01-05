@@ -2,7 +2,9 @@ import fs from "fs";
 import {
   ASTNode,
   ASTPath,
+  Collection,
   Function,
+  ImportDeclaration,
   JSCodeshift,
   ObjectMethod,
   SourceLocation,
@@ -12,6 +14,9 @@ import { SettingsObject } from "./types";
 
 const debug = require("debug")("run:utils");
 
+/**
+ * Get settings object from settings.json file
+ */
 export const getSettings = () => {
   try {
     debug("pwd", process.cwd());
@@ -28,6 +33,9 @@ export const getSettings = () => {
   }
 };
 
+/**
+ * Get the location object of current AST path
+ */
 export const getLocation = (
   p: ASTPath | ASTPath<any>
 ): SourceLocation | undefined => {
@@ -45,6 +53,10 @@ export const getLocation = (
   return getLocation(p.parentPath);
 };
 
+/**
+ * get parent variable declarator
+ * which has type equal VariableDeclarator
+ */
 export const getParentVariableDeclarator = (
   p: ASTPath<VariableDeclarator>
 ): ASTPath | undefined => {
@@ -62,6 +74,9 @@ export type GetFunctionNameResult = {
   objectName?: string;
 };
 
+/**
+ * Get function name
+ */
 export const getFunctionName = (
   p: ASTPath<Function | ObjectMethod>
 ): GetFunctionNameResult | undefined => {
@@ -161,6 +176,9 @@ export const getFunctionName = (
   }
 };
 
+/**
+ * Get function params
+ */
 export const getFunctionParams = (p: ASTPath<Function>, j: JSCodeshift) => {
   switch (p.value.type) {
     case "ArrowFunctionExpression":
@@ -174,9 +192,55 @@ export const getFunctionParams = (p: ASTPath<Function>, j: JSCodeshift) => {
   }
 };
 
+/**
+ * Fill missing chars with empty spaces
+ */
 export const getFixedLengthText = (str: string, length: number): string => {
   if (str.length >= length) {
     return str;
   }
   return `${str}${" ".repeat(length - str.length)}`;
+};
+
+/**
+ * Check if the source is local file
+ */
+export const isLocalSource = (source: string) => {
+  return /^[./]/.test(source);
+};
+
+/**
+ * Find the import declarator by the variable name
+ */
+export const findImportNodeByVariableName = (
+  name: string,
+  rootCollection: Collection,
+  j: JSCodeshift
+) => {
+  let importNode: ImportDeclaration | undefined;
+  let importSpecType: string | undefined;
+  let importSource: string | undefined;
+  // find all imported async functions
+  const importedNodes = rootCollection.find(j.ImportDeclaration);
+  importedNodes.map((p) => {
+    debug("imported node source:", j(p).toSource());
+    p.value.specifiers?.map((spec) => {
+      if (
+        spec.local?.name === name &&
+        p.value.source.type === "StringLiteral"
+      ) {
+        importNode = p.value;
+        importSpecType = spec.type;
+        importSource = p.value.source.value;
+      }
+      return null;
+    });
+    return null;
+  });
+
+  return {
+    importNode,
+    importSpecType,
+    importSource,
+  };
 };
