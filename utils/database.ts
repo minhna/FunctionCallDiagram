@@ -1,4 +1,5 @@
-import { MongoClient } from "mongodb";
+import { MongoClient, Collection } from "mongodb";
+import { CallsCollection } from "./types";
 import { getSettings } from "./utils";
 
 const debug = require("debug")("run:utils-database");
@@ -19,7 +20,9 @@ const getConnection = () => {
   const client = new MongoClient(settings.mongodb.connectionURI);
 
   const db = client.db(settings.mongodb.database);
-  const collection = db.collection(settings.mongodb.collection);
+  const collection: Collection<CallsCollection> = db.collection(
+    settings.mongodb.collection
+  );
 
   return { db, client, collection };
 };
